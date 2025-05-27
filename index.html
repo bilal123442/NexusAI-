@@ -424,14 +424,14 @@
             const buttonText = document.getElementById('button-text');
             const spinner = document.getElementById('spinner');
 
-            // IMPORTANT: In a production environment, you should:
-            // 1. Move this to a backend service
-            // 2. Use environment variables
-            // 3. Implement proper authentication
-            const OPENROUTER_API_KEY = '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'; // Replace with your key
-            const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+            // API configuration - add your OpenRouter key here
+            const OPENROUTER_API_KEY = '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'; // Get from https://openrouter.ai/keys
+            const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+            
+            // Alternative API configuration
+            const ALTERNATIVE_API_KEY = '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'; // Add your alternative API key here if needed
+            const ALTERNATIVE_API_URL = 'https://openrouter.ai/api/v1/chat/completions'; // Add your alternative API URL here if needed
 
-            // Handle sending messages
             async function sendMessage() {
                 const message = userInput.value.trim();
                 if (!message) {
@@ -450,7 +450,43 @@
                 sendButton.disabled = true;
 
                 try {
-                    const response = await fetch(API_URL, {
+                    // First try OpenRouter API
+                    let response = await tryOpenRouterAPI(message);
+                    
+                    // If OpenRouter fails and alternative API is configured, try it
+                    if (!response.ok && ALTERNATIVE_API_KEY && ALTERNATIVE_API_URL) {
+                        response = await tryAlternativeAPI(message);
+                    }
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error?.message || `API request failed with status ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const aiResponse = data.choices?.[0]?.message?.content || "I couldn't process your request.";
+                    addMessage(aiResponse, 'ai');
+                    
+                } catch (error) {
+                    console.error('API Error:', error);
+                    addMessage("Sorry, I'm having trouble connecting to the service. Please try again later.", 'ai');
+                } finally {
+                    // Hide loading states
+                    typingIndicator.style.display = 'none';
+                    buttonText.style.display = 'inline';
+                    spinner.style.display = 'none';
+                    sendButton.disabled = false;
+                }
+            }
+
+            // Try OpenRouter API
+            async function tryOpenRouterAPI(message) {
+                if (!OPENROUTER_API_KEY) {
+                    return new Response(null, { status: 401, statusText: "OpenRouter API key not configured" });
+                }
+                
+                try {
+                    return await fetch(OPENROUTER_API_URL, {
                         method: 'POST',
                         headers: {
                             'Authorization': 'Bearer ' + OPENROUTER_API_KEY,
@@ -474,25 +510,44 @@
                             max_tokens: 1000
                         })
                     });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error?.message || `API request failed with status ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    const aiResponse = data.choices?.[0]?.message?.content || "I couldn't process your request.";
-                    addMessage(aiResponse, 'ai');
-                    
                 } catch (error) {
-                    console.error('API Error:', error);
-                    addMessage("Sorry, I'm having trouble connecting to the service. Please try again later.", 'ai');
-                } finally {
-                    // Hide loading states
-                    typingIndicator.style.display = 'none';
-                    buttonText.style.display = 'inline';
-                    spinner.style.display = 'none';
-                    sendButton.disabled = false;
+                    console.error('OpenRouter API Error:', error);
+                    return new Response(null, { status: 500, statusText: "OpenRouter API request failed" });
+                }
+            }
+
+            // Try Alternative API (placeholder for another API if needed)
+            async function tryAlternativeAPI(message) {
+                if (!ALTERNATIVE_API_KEY || !ALTERNATIVE_API_URL) {
+                    return new Response(null, { status: 401, statusText: "Alternative API not configured" });
+                }
+                
+                try {
+                    return await fetch(ALTERNATIVE_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + ALTERNATIVE_API_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-3.5-turbo', // Example model, change as needed
+                            messages: [
+                                {
+                                    role: "system",
+                                    content: "You are NexusAI, a helpful AI assistant. Provide concise, accurate, and helpful responses. Format your answers with proper markdown for code blocks, lists, and paragraphs."
+                                },
+                                {
+                                    role: "user",
+                                    content: message
+                                }
+                            ],
+                            temperature: 0.7,
+                            max_tokens: 1000
+                        })
+                    });
+                } catch (error) {
+                    console.error('Alternative API Error:', error);
+                    return new Response(null, { status: 500, statusText: "Alternative API request failed" });
                 }
             }
 
@@ -539,7 +594,7 @@
                 }
             });
 
-            // Focus input on page load
+            // Focus input on load
             userInput.focus();
         });
     </script>
