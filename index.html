@@ -424,14 +424,14 @@
             const buttonText = document.getElementById('button-text');
             const spinner = document.getElementById('spinner');
 
-            // API configuration - add your OpenRouter key here
+            // API configuration - add your keys here
             const OPENROUTER_API_KEY = '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'; // Get from https://openrouter.ai/keys
-            const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+            const STABILITY_API_KEY = 'sk-2ENMSnKWjEtmIGmpxSGRtomaJPfj9j6Lt4G7TLlxtgD8Tzc6'; // Get from https://platform.stability.ai/account/keys
             
-            // Alternative API configuration
-            const ALTERNATIVE_API_KEY = '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'; // Add your alternative API key here if needed
-            const ALTERNATIVE_API_URL = 'https://openrouter.ai/api/v1/chat/completions'; // Add your alternative API URL here if needed
+            const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+            const STABILITY_API_URL = 'https://api.stability.ai/v1/chat/completions';
 
+            // Function to try OpenRouter API first, then fall back to Stability AI
             async function sendMessage() {
                 const message = userInput.value.trim();
                 if (!message) {
@@ -453,9 +453,9 @@
                     // First try OpenRouter API
                     let response = await tryOpenRouterAPI(message);
                     
-                    // If OpenRouter fails and alternative API is configured, try it
-                    if (!response.ok && ALTERNATIVE_API_KEY && ALTERNATIVE_API_URL) {
-                        response = await tryAlternativeAPI(message);
+                    // If OpenRouter fails, try Stability AI
+                    if (!response.ok) {
+                        response = await tryStabilityAIAPI(message);
                     }
 
                     if (!response.ok) {
@@ -516,21 +516,21 @@
                 }
             }
 
-            // Try Alternative API (placeholder for another API if needed)
-            async function tryAlternativeAPI(message) {
-                if (!ALTERNATIVE_API_KEY || !ALTERNATIVE_API_URL) {
-                    return new Response(null, { status: 401, statusText: "Alternative API not configured" });
+            // Try Stability AI API
+            async function tryStabilityAIAPI(message) {
+                if (!STABILITY_API_KEY) {
+                    return new Response(null, { status: 401, statusText: "Stability AI API key not configured" });
                 }
                 
                 try {
-                    return await fetch(ALTERNATIVE_API_URL, {
+                    return await fetch(STABILITY_API_URL, {
                         method: 'POST',
                         headers: {
-                            'Authorization': 'Bearer ' + ALTERNATIVE_API_KEY,
+                            'Authorization': 'Bearer ' + STABILITY_API_KEY,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
-                            model: 'gpt-3.5-turbo', // Example model, change as needed
+                            model: 'stablelm-tuned-alpha-7b',
                             messages: [
                                 {
                                     role: "system",
@@ -546,8 +546,8 @@
                         })
                     });
                 } catch (error) {
-                    console.error('Alternative API Error:', error);
-                    return new Response(null, { status: 500, statusText: "Alternative API request failed" });
+                    console.error('Stability AI API Error:', error);
+                    return new Response(null, { status: 500, statusText: "Stability AI API request failed" });
                 }
             }
 
